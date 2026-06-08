@@ -1,16 +1,22 @@
-NBJapuszkowy Bank — wersja na hosting PHP + JSON
+NBJapuszkowy Bank — wersja bez folderu data
 
-Jak wrzucić:
-1. Wgraj całą zawartość folderu NBJapuszkowy_Bank_HOSTING na hosting.
-2. Pliki index.html i api.php muszą być w tym samym folderze.
-3. Folder data zostaw na hostingu. W nim jest plik nbj-data.json.
-4. Hosting musi obsługiwać PHP.
-5. Panel admina: hasło NBJ2026!
+Wgraj wszystkie pliki z tej paczki do jednego katalogu na hostingu:
+- index.html
+- api.php
+- nbj-data.json
+- .htaccess
 
-Gdzie są dane:
-- dane banku są w pliku: data/nbj-data.json
-- folder data ma .htaccess, żeby przeglądarka nie pokazywała pliku JSON publicznie
+Panel admina:
+NBJ2026!
+
+Wymagania:
+- hosting z PHP
+- plik nbj-data.json musi mieć możliwość zapisu przez PHP
+
+Gdyby po rejestracji wyskoczył błąd zapisu:
+- ustaw uprawnienia pliku nbj-data.json na 664 lub 666
+- ewentualnie katalogu, w którym są pliki, na 755 albo 775
 
 Ważne:
-- Nie odpalaj samego index.html z komputera, bo wtedy PHP nie zadziała.
-- Otwieraj stronę przez adres domeny / hostingu.
+- .htaccess blokuje bezpośrednie wejście w nbj-data.json na hostingu Apache.
+- Jeśli hosting działa na nginx i ignoruje .htaccess, zablokuj dostęp do nbj-data.json w panelu hostingu.

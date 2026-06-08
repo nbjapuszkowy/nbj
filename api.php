@@ -7,9 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 $ADMIN_PASSWORD = 'NBJ2026!';
-$DATA_DIR = __DIR__ . DIRECTORY_SEPARATOR . 'data';
-$DATA_FILE = $DATA_DIR . DIRECTORY_SEPARATOR . 'nbj-data.json';
-
+$DATA_FILE = __DIR__ . DIRECTORY_SEPARATOR . 'nbj-data.json';
 $CURRENCIES = ['zwykle', 'zlote', 'diamentowe', 'sekretne', 'og'];
 
 function send_json(array $payload): void {
@@ -54,18 +52,7 @@ function account_no(): string {
 }
 
 function ensure_storage(): void {
-    global $DATA_DIR, $DATA_FILE;
-
-    if (!is_dir($DATA_DIR)) {
-        if (!mkdir($DATA_DIR, 0755, true) && !is_dir($DATA_DIR)) {
-            fail('Nie można utworzyć folderu data na hostingu.', 500);
-        }
-    }
-
-    $htaccess = $DATA_DIR . DIRECTORY_SEPARATOR . '.htaccess';
-    if (!file_exists($htaccess)) {
-        @file_put_contents($htaccess, "Require all denied\nDeny from all\n");
-    }
+    global $DATA_FILE;
 
     if (!file_exists($DATA_FILE)) {
         $default = [
@@ -73,7 +60,14 @@ function ensure_storage(): void {
             'transactions' => [],
             'createdAt' => now_iso()
         ];
-        file_put_contents($DATA_FILE, json_encode($default, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+        $ok = @file_put_contents($DATA_FILE, json_encode($default, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+        if ($ok === false) {
+            fail('Nie można utworzyć pliku nbj-data.json. Sprawdź uprawnienia katalogu na hostingu.', 500);
+        }
+    }
+
+    if (!is_writable($DATA_FILE)) {
+        fail('Plik nbj-data.json nie ma uprawnień do zapisu.', 500);
     }
 }
 
@@ -91,8 +85,8 @@ function normalize_db(array $db): array {
         if (!isset($u['status'])) $u['status'] = 'pending';
         if (!isset($u['accountNo'])) $u['accountNo'] = account_no();
         if (!isset($u['createdAt'])) $u['createdAt'] = now_iso();
-        if (!isset($u['approvedAt'])) $u['approvedAt'] = null;
-        if (!isset($u['blockedAt'])) $u['blockedAt'] = null;
+        if (!array_key_exists('approvedAt', $u)) $u['approvedAt'] = null;
+        if (!array_key_exists('blockedAt', $u)) $u['blockedAt'] = null;
         if (!isset($u['balances']) || !is_array($u['balances'])) $u['balances'] = empty_balances();
 
         $base = empty_balances();
@@ -128,7 +122,7 @@ function save_db(array $db): void {
     $ok = file_put_contents($DATA_FILE, json_encode($db, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
     if ($ok === false) {
-        fail('Nie można zapisać danych JSON na hostingu.', 500);
+        fail('Nie można zapisać danych do nbj-data.json.', 500);
     }
 }
 
@@ -150,7 +144,7 @@ function verify_password_for_user(array $u, string $password): bool {
         return true;
     }
 
-    // obsługa starych danych importowanych z wersji HTML
+    // Obsługa importu ze starszej wersji.
     if (isset($u['password']) && hash_equals((string)$u['password'], $password)) {
         return true;
     }
@@ -594,7 +588,6 @@ try {
             if (!isset($newData['users']) || !is_array($newData['users'])) fail('Brak listy użytkowników w JSON.');
             if (!isset($newData['transactions']) || !is_array($newData['transactions'])) fail('Brak historii operacji w JSON.');
 
-            // Jeżeli import pochodzi ze starej wersji z hasłami plain text, zamieniamy na hashe.
             foreach ($newData['users'] as &$u) {
                 if (!isset($u['passwordHash']) && isset($u['password'])) {
                     $u['passwordHash'] = password_hash((string)$u['password'], PASSWORD_DEFAULT);
